@@ -1,8 +1,11 @@
 import asyncio
 import random
+import re
 import time
 from dataclasses import dataclass
+from urllib.parse import urljoin
 
+import bs4
 import httpx
 from httpx import AsyncClient
 
@@ -268,6 +271,47 @@ def _solution_to_result(solution: flaresolverr.FlareSolverrSolution) -> FetchRes
     )
 
 
+def extract_client_redirect(html_text: str, base_url: str) -> str | None:
+    """
+    Detects and extracts client-side redirect URLs (HTML meta refresh or JavaScript
+    location.replace / location.href redirects), common on social media share links
+    such as Facebook, Instagram, and TikTok.
+    """
+    if not html_text or len(html_text) > 100000:
+        return None
+
+    html_lower = html_text.lower()
+
+    # 1. Meta refresh tag: <meta http-equiv="refresh" content="0;url=...">
+    if "refresh" in html_lower and "url=" in html_lower:
+        try:
+            soup = bs4.BeautifulSoup(html_text, "html.parser")
+            meta = soup.find("meta", attrs={"http-equiv": lambda v: v and v.lower() == "refresh"})
+            if meta and meta.get("content"):
+                content = str(meta["content"])
+                if "url=" in content.lower():
+                    idx = content.lower().find("url=")
+                    target = content[idx + 4 :].strip().strip("'\"")
+                    if target:
+                        return urljoin(base_url, target)
+        except Exception:
+            pass
+
+    # 2. JavaScript location replace/href: window.location.replace("...")
+    if "window.location" in html_text:
+        match = re.search(r'window\.location\.(?:replace|href)\s*(?:=|\()\s*["\']([^"\']+)["\']\s*\)?', html_text)
+        if match:
+            raw = match.group(1)
+            try:
+                target = bytes(raw, "utf-8").decode("unicode_escape")
+            except Exception:
+                target = raw
+            if target:
+                return urljoin(base_url, target)
+
+    return None
+
+
 async def resilient_fetch(
     url: str,
     *,
@@ -275,6 +319,7 @@ async def resilient_fetch(
     timeout: int = SCRAPER_TIMEOUT,
     allow_flaresolverr: bool = True,
     max_bytes: int | None = None,
+    follow_meta_refresh: bool = True,
 ) -> FetchResult | None:
     """
     Fetches a URL while cycling through browser TLS impersonations (via httpx-curl-cffi) to
@@ -314,26 +359,31 @@ async def resilient_fetch(
     result, blocked = await _rotate(
         url, method, timeout, read_body, proxy if proxy_first else None, deadline, max_bytes
     )
-    if result is not None:
-        return result
-
-    # In `fallback` mode, escalate to the proxy only when a direct attempt was blocked (not on a
-    # hard error, and not if we already used the proxy above).
-    if blocked and proxy and not proxy_first:
+    if result is None and blocked and proxy and not proxy_first:
         logger.debug("Direct fetch blocked; retrying through configured proxy")
         result, blocked = await _rotate(url, method, timeout, read_body, proxy, deadline, max_bytes)
-        if result is not None:
-            return result
 
-    # Final escalation: a real browser via FlareSolverr. HTML-only, and only when still blocked.
-    # Note: the impersonation rotation above always runs first, so its SSRF guard (which rejects
-    # private target IPs) has already vetted `url` before we hand it to FlareSolverr.
-    if blocked and read_body and allow_flaresolverr and settings.SCRAPER_FLARESOLVERR_URL:
+    if result is None and blocked and read_body and allow_flaresolverr and settings.SCRAPER_FLARESOLVERR_URL:
         logger.debug("Fetch still blocked; escalating to FlareSolverr")
         solution = await flaresolverr.solve(
             settings.SCRAPER_FLARESOLVERR_URL, url, settings.SCRAPER_FLARESOLVERR_TIMEOUT
         )
         if solution is not None:
-            return _solution_to_result(solution)
+            result = _solution_to_result(solution)
+
+    if result is not None and read_body and follow_meta_refresh:
+        redirect_url = extract_client_redirect(result.text, result.url)
+        if redirect_url and redirect_url != result.url:
+            logger.info("Following client-side redirect from %s to %s", result.url, redirect_url)
+            redirect_res = await resilient_fetch(
+                redirect_url,
+                method=method,
+                timeout=timeout,
+                allow_flaresolverr=allow_flaresolverr,
+                max_bytes=max_bytes,
+                follow_meta_refresh=False,
+            )
+            if redirect_res is not None:
+                return redirect_res
 
     return result

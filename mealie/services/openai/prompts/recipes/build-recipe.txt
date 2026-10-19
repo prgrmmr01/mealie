@@ -17,3 +17,4 @@ When converting:
 - Put tips, variations, storage advice, and similar asides into notes rather than instructions.
 - Only fill in nutrition if the source states it.
 - If the source gives only one time, use total_time and leave prep_time and perform_time empty.
+- Clean the recipe title of any social media engagement hooks, view counts, reaction counts, hashtag lists, or follower solicitations (e.g. convert '408K views | ... my 10-MINUTE CHINESE CHICKEN CHOPPED SALAD ... Follow me' to '10-Minute Chinese Chicken Chopped Salad').

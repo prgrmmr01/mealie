@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 from pydantic import UUID4
 
 from mealie.core.root_logger import get_logger
@@ -9,9 +9,12 @@ from mealie.routes._base.base_controllers import BaseUserController
 from mealie.routes._base.mixins import HttpRepo
 from mealie.routes._base.permissions import Perm, require
 from mealie.schema.group.ai_providers import (
+    AIModelInfo,
     AIPromptOverrideUpdate,
     AIPromptsOut,
     AIProviderCreate,
+    AIProviderGetModelsIn,
+    AIProviderModelsOut,
     AIProviderOut,
     AIProviderSettingsOut,
     AIProviderSettingsUpdate,
@@ -19,6 +22,7 @@ from mealie.schema.group.ai_providers import (
     AIProviderUpdate,
 )
 from mealie.services.openai import OpenAIService
+from mealie.services.openai.ai_models import fetch_gemini_models, fetch_openai_models
 
 logger = get_logger()
 settings_router = APIRouter(prefix="/groups/ai-providers/settings", tags=["Groups: AI Provider Settings"])
@@ -62,6 +66,33 @@ class GroupAIProviderController(BaseUserController):
             request_params=data.request_params,
         )
         return await OpenAIService(self.repos).test_connection(provider)
+
+    @providers_router.post("/get-models", response_model=AIProviderModelsOut, dependencies=[require(Perm.GROUP_MANAGE)])
+    async def get_models(self, data: AIProviderGetModelsIn) -> AIProviderModelsOut:
+        """Fetch available models from Google Gemini or an OpenAI-compatible endpoint."""
+        api_key = data.api_key
+        base_url = data.base_url
+
+        if not api_key and data.provider_id:
+            saved = self.repos.group_ai_providers.get_one(data.provider_id)
+            if saved:
+                api_key = saved.api_key
+                base_url = base_url or saved.base_url
+
+        if not api_key:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="API key is required to query models")
+
+        try:
+            if data.provider_type == "gemini" or (base_url and "googleapis.com" in base_url):
+                models = await fetch_gemini_models(api_key)
+            else:
+                models = await fetch_openai_models(api_key, base_url=base_url)
+            return AIProviderModelsOut(
+                models=[AIModelInfo(id=m.id, name=m.name, description=m.description) for m in models]
+            )
+        except Exception as e:
+            self.logger.exception("Failed to fetch models from AI provider")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Failed to fetch models from provider: {e}") from e
 
     @providers_router.post(
         "/{provider_id}/test", response_model=AIProviderTestResult, dependencies=[require(Perm.GROUP_MANAGE)]

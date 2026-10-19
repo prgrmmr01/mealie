@@ -15,6 +15,7 @@ const routes = {
   providersId: (id: string) => `${prefix}/providers/${id}`,
   providersTest: `${prefix}/providers/test`,
   providersIdTest: (id: string) => `${prefix}/providers/${id}/test`,
+  providersGetModels: `${prefix}/providers/get-models`,
   prompts: `${prefix}/prompts`,
   promptsName: (name: string) => `${prefix}/prompts/${name}`,
 };
@@ -42,6 +43,13 @@ export class AIProvidersAPI extends BaseAPI {
 
   async testSavedOne(id: string, overrides?: AIProviderUpdate & { apiKey?: string }) {
     return await this.requests.post<AIProviderTestResult, typeof overrides>(routes.providersIdTest(id), overrides);
+  }
+
+  async getModels(payload: { apiKey?: string; baseUrl?: string | null; providerType?: string; providerId?: string }) {
+    return await this.requests.post<{ models: Array<{ id: string; name: string; description?: string | null }> }, typeof payload>(
+      routes.providersGetModels,
+      payload,
+    );
   }
 
   async getPrompts() {

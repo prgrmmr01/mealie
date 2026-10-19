@@ -195,3 +195,20 @@ class AIProviderSettingsOut(AIProviderSettingsUpdate):
             joinedload(AIProviderSettings.audio_provider),
             joinedload(AIProviderSettings.image_provider),
         ]
+
+
+class AIModelInfo(MealieModel):
+    id: str
+    name: str
+    description: str | None = None
+
+
+class AIProviderGetModelsIn(MealieModel):
+    api_key: str = ""
+    base_url: str | None = None
+    provider_type: str = "gemini"
+    provider_id: UUID4 | None = None
+
+
+class AIProviderModelsOut(MealieModel):
+    models: list[AIModelInfo]

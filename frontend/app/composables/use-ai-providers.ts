@@ -54,6 +54,10 @@ export function useAIProviders() {
     return await api.aiProviders.testSavedOne(id, overrides);
   }
 
+  async function getModels(payload: { apiKey?: string; baseUrl?: string | null; providerType?: string; providerId?: string }) {
+    return await api.aiProviders.getModels(payload);
+  }
+
   return {
     loading: readonly(loading),
     getOne,
@@ -62,6 +66,7 @@ export function useAIProviders() {
     deleteOne,
     testOne,
     testSavedOne,
+    getModels,
   };
 }
 

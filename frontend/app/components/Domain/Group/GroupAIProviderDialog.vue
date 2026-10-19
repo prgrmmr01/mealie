@@ -13,6 +13,26 @@
   >
     <v-card-text v-if="init" style="max-height: 70vh; overflow-y: auto;">
       <v-form ref="form" v-no-autofill>
+        <v-btn-toggle
+          v-model="providerType"
+          mandatory
+          divided
+          density="compact"
+          color="primary"
+          class="mb-4 d-flex"
+          @update:model-value="onProviderTypeChange"
+        >
+          <v-btn value="gemini" class="flex-grow-1">
+            Google Gemini
+          </v-btn>
+          <v-btn value="openai" class="flex-grow-1">
+            OpenAI
+          </v-btn>
+          <v-btn value="custom" class="flex-grow-1">
+            Custom
+          </v-btn>
+        </v-btn-toggle>
+
         <v-text-field
           v-model="formData.name"
           :label="$t('group.ai-provider-settings.provider-name')"
@@ -21,15 +41,32 @@
           variant="outlined"
           class="mb-4"
         />
-        <v-text-field
-          v-model="formData.model"
-          :label="$t('group.ai-provider-settings.model')"
-          :hint="$t('group.ai-provider-settings.model-description')"
-          :rules="[validators.required]"
-          density="compact"
-          variant="outlined"
-          class="mb-4"
-        />
+
+        <div class="d-flex align-start ga-2 mb-4">
+          <v-combobox
+            v-model="formData.model"
+            :items="availableModelItems"
+            item-title="title"
+            item-value="value"
+            :return-object="false"
+            :label="$t('group.ai-provider-settings.model')"
+            :hint="$t('group.ai-provider-settings.model-description')"
+            :rules="[validators.required]"
+            density="compact"
+            variant="outlined"
+            class="flex-grow-1"
+          />
+          <v-btn
+            variant="tonal"
+            color="primary"
+            class="mt-1"
+            :loading="fetchingModels"
+            :disabled="fetchModelsDisabled || fetchingModels"
+            @click="handleFetchModels"
+          >
+            Fetch Models
+          </v-btn>
+        </div>
         <v-text-field
           v-model="formData.apiKey"
           :label="$t('group.ai-provider-settings.api-key')"
@@ -133,19 +170,100 @@ const dialog = defineModel<boolean>({ default: false });
 
 const { $globals } = useNuxtApp();
 const i18n = useI18n();
-const { loading, getOne, testOne, testSavedOne } = useAIProviders();
+const { loading, getOne, testOne, testSavedOne, getModels } = useAIProviders();
 const init = ref(false);
 
 const form = ref();
 const advancedPanel = ref<number | undefined>(undefined);
 
 const isEdit = computed(() => !!props.providerId);
+const providerType = ref("gemini");
+const availableModels = ref<Array<{ id: string; name: string; description?: string | null }>>([]);
+const fetchingModels = ref(false);
+
+const fetchModelsDisabled = computed(() => {
+  return !formData.apiKey?.trim() && !isEdit.value;
+});
+
+const availableModelItems = computed(() => {
+  if (availableModels.value.length > 0) {
+    return availableModels.value.map(m => ({
+      title: m.name ? `${m.name} (${m.id})` : m.id,
+      value: m.id,
+    }));
+  }
+  if (providerType.value === "gemini") {
+    return [
+      { title: "Gemini 2.5 Flash", value: "gemini-2.5-flash" },
+      { title: "Gemini 2.5 Pro", value: "gemini-2.5-pro" },
+      { title: "Gemini 2.0 Flash", value: "gemini-2.0-flash" },
+      { title: "Gemini 1.5 Flash", value: "gemini-1.5-flash" },
+      { title: "Gemini 1.5 Pro", value: "gemini-1.5-pro" },
+    ];
+  }
+  return [
+    { title: "gpt-4o", value: "gpt-4o" },
+    { title: "gpt-4o-mini", value: "gpt-4o-mini" },
+  ];
+});
+
+function onProviderTypeChange(type: string) {
+  if (type === "gemini") {
+    if (!formData.name || formData.name === "OpenAI" || formData.name === "Custom") {
+      formData.name = "Google Gemini";
+    }
+    formData.baseUrl = "https://generativelanguage.googleapis.com/v1beta/openai/";
+    if (!formData.model || formData.model === "gpt-4o" || formData.model === "gpt-4o-mini") {
+      formData.model = "gemini-2.5-flash";
+    }
+  }
+  else if (type === "openai") {
+    if (!formData.name || formData.name === "Google Gemini" || formData.name === "Custom") {
+      formData.name = "OpenAI";
+    }
+    formData.baseUrl = "https://api.openai.com/v1";
+    if (!formData.model || formData.model.startsWith("gemini")) {
+      formData.model = "gpt-4o";
+    }
+  }
+  else {
+    if (!formData.name || formData.name === "Google Gemini" || formData.name === "OpenAI") {
+      formData.name = "Custom";
+    }
+    formData.baseUrl = "";
+  }
+  availableModels.value = [];
+}
+
+async function handleFetchModels() {
+  fetchingModels.value = true;
+  try {
+    const res = await getModels({
+      apiKey: formData.apiKey || undefined,
+      baseUrl: formData.baseUrl || null,
+      providerType: providerType.value,
+      providerId: props.providerId,
+    });
+    if (res?.data?.models && res.data.models.length > 0) {
+      availableModels.value = res.data.models;
+      if (!formData.model || !availableModels.value.some(m => m.id === formData.model)) {
+        formData.model = availableModels.value[0].id;
+      }
+    }
+  }
+  catch (e) {
+    // handled gracefully
+  }
+  finally {
+    fetchingModels.value = false;
+  }
+}
 
 const defaultForm = () => ({
-  name: "",
-  model: "",
+  name: "Google Gemini",
+  model: "gemini-2.5-flash",
   apiKey: "",
-  baseUrl: "",
+  baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/",
   timeout: 300,
   requestHeaders: {} as Record<string, string>,
   requestParams: {} as Record<string, string>,
@@ -167,10 +285,6 @@ const connectionMessage = computed(() => {
   return result.message || i18n.t("group.ai-provider-settings.test-connection-failed");
 });
 
-// Capability info rather than a second pass/fail check - a text-only provider is a valid setup,
-// it just can't be used as the image provider. Appended to the connection message above.
-// supportsImages is null when image support wasn't checked (e.g. an audio-only provider that was
-// tested by transcription), so there's nothing to say about images then.
 const imageSupportMessage = computed(() => {
   const result = testResult.value;
   if (!result?.success || typeof result.supportsImages !== "boolean") return "";
@@ -185,13 +299,11 @@ let requestToken = 0;
 watch(
   () => [dialog.value, props.providerId] as const,
   async ([open, id]) => {
-    // Bump the token even when bailing out below, so a fetch still in flight from a
-    // previous provider/dialog state can never apply its (now stale) result afterward.
     const token = ++requestToken;
     if (!open) return;
     testResult.value = null;
+    availableModels.value = [];
     if (!id) {
-      // Create mode — just show the empty form
       resetForm();
       init.value = true;
       return;
@@ -208,6 +320,16 @@ watch(
       formData.timeout = data.timeout ?? 300;
       formData.requestHeaders = { ...(data.requestHeaders ?? {}) };
       formData.requestParams = { ...(data.requestParams ?? {}) };
+
+      if (data.baseUrl?.includes("googleapis.com") || data.name.toLowerCase().includes("gemini")) {
+        providerType.value = "gemini";
+      }
+      else if (data.baseUrl?.includes("openai.com") || data.name.toLowerCase().includes("openai")) {
+        providerType.value = "openai";
+      }
+      else {
+        providerType.value = "custom";
+      }
     }
   },
   { immediate: true },
@@ -248,6 +370,8 @@ function handleSubmit() {
 
 function resetForm() {
   Object.assign(formData, defaultForm());
+  providerType.value = "gemini";
+  availableModels.value = [];
   form.value?.reset();
   advancedPanel.value = undefined;
   testResult.value = null;

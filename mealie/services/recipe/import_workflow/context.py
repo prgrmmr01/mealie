@@ -1,5 +1,5 @@
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
@@ -12,7 +12,7 @@ from mealie.schema.openai.compiled_source import OpenAICompiledSource
 from mealie.schema.openai.organizers import OpenAIOrganizers
 from mealie.schema.recipe.recipe import Recipe
 from mealie.schema.user.user import PrivateUser
-from mealie.services.openai import OpenAIService
+from mealie.services.openai import OpenAIAttachment, OpenAIService
 
 
 class WorkflowInput(BaseModel):
@@ -60,6 +60,9 @@ class WorkflowOptions(BaseModel):
     create_new_organizers: bool = False
     """Whether organizers that don't already exist in the group should be created"""
 
+    single_step: bool = False
+    """Whether to run single-step extraction directly to recipe without intermediate compilation"""
+
 
 class StepOutcome(StrEnum):
     COMPLETED = "completed"
@@ -95,6 +98,9 @@ class WorkflowContext:
 
     draft_recipe: Recipe | None = None
     """Recipe under construction. Not persisted; the caller is responsible for saving it."""
+
+    attachments: list[OpenAIAttachment] = field(default_factory=list)
+    """Optional attachments (e.g. images) passed to the recipe builder"""
 
     async def report_progress(self, key: str) -> None:
         if self.on_progress:

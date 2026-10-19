@@ -86,7 +86,7 @@ class ResolveOrganizersStep(WorkflowStep):
         return truncate_source_content("\n\n".join(message_parts))
 
     def should_run(self, ctx: WorkflowContext) -> bool:
-        return ctx.options.resolve_organizers
+        return ctx.options.resolve_organizers and not ctx.options.single_step
 
     async def run(self, ctx: WorkflowContext) -> None:
         recipe = ctx.draft_recipe

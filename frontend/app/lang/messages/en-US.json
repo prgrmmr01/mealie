@@ -603,6 +603,8 @@
     "import-with-ai-error-details": "AI was unable to create a recipe from what you provided. Check that it contains a recipe, and try again.",
     "create-new-organizers": "Create new organizers",
     "create-new-organizers-hint": "Tags, categories, and tools found on the recipe are always matched against the ones you already have. Turn this on to also create the ones you don't.",
+    "fast-one-step-parsing": "Fast 1-step AI parsing",
+    "fast-one-step-parsing-hint": "Sends extracted page content directly to the AI to extract structured recipe data in a single call, speeding up import and conserving quota.",
     "create-recipe": "Create Recipe",
     "create-recipe-description": "Create a new recipe from scratch.",
     "create-recipes": "Create Recipes",

@@ -7,6 +7,7 @@ export interface UseNewRecipeOptionsProps {
   enableParseRecipe?: boolean;
   enableTranslateRecipe?: boolean;
   enableCreateNewOrganizers?: boolean;
+  enableSingleStep?: boolean;
 }
 
 export function useNewRecipeOptions(props: UseNewRecipeOptionsProps = {}) {
@@ -17,6 +18,7 @@ export function useNewRecipeOptions(props: UseNewRecipeOptionsProps = {}) {
     enableParseRecipe = true,
     enableTranslateRecipe = false,
     enableCreateNewOrganizers = false,
+    enableSingleStep = false,
   } = props;
 
   const router = useRouter();
@@ -88,6 +90,17 @@ export function useNewRecipeOptions(props: UseNewRecipeOptionsProps = {}) {
     },
   });
 
+  const singleStep = computed({
+    get() {
+      if (!enableSingleStep) return false;
+      return recipeCreatePreferences.value.singleStep;
+    },
+    set(v: boolean) {
+      if (!enableSingleStep) return;
+      recipeCreatePreferences.value.singleStep = v;
+    },
+  });
+
   function navigateToRecipe(recipeSlug: string, groupSlug: string, createPagePath: string) {
     const editParam = enableStayInEditMode ? stayInEditMode.value : false;
     const parseParam = enableParseRecipe ? parseRecipe.value : false;
@@ -115,6 +128,7 @@ export function useNewRecipeOptions(props: UseNewRecipeOptionsProps = {}) {
     parseRecipe,
     translateRecipe,
     createNewOrganizers,
+    singleStep,
 
     // Helper functions
     navigateToRecipe,
@@ -126,5 +140,6 @@ export function useNewRecipeOptions(props: UseNewRecipeOptionsProps = {}) {
     enableParseRecipe,
     enableTranslateRecipe,
     enableCreateNewOrganizers,
+    enableSingleStep,
   };
 }

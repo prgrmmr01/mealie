@@ -73,6 +73,7 @@ export interface UserRecipeCreatePreferences {
   parseRecipe: boolean;
   translateRecipe: boolean;
   createNewOrganizers: boolean;
+  singleStep: boolean;
 }
 
 export interface UserActivityPreferences {
@@ -241,6 +242,7 @@ export function useRecipeCreatePreferences(): Ref<UserRecipeCreatePreferences> {
       parseRecipe: true,
       translateRecipe: false,
       createNewOrganizers: false,
+      singleStep: true,
     },
     { mergeDefaults: true },
   );

@@ -89,6 +89,23 @@
         />
         <div class="d-flex align-center">
           <v-checkbox
+            v-model="singleStep"
+            color="primary"
+            hide-details
+            :label="$t('recipe.fast-one-step-parsing')"
+            :disabled="state.loading"
+          />
+          <v-tooltip location="bottom" max-width="300">
+            <template #activator="{ props: tooltipProps }">
+              <v-icon v-bind="tooltipProps" size="small" class="ms-2">
+                {{ $globals.icons.help }}
+              </v-icon>
+            </template>
+            <span>{{ $t('recipe.fast-one-step-parsing-hint') }}</span>
+          </v-tooltip>
+        </div>
+        <div class="d-flex align-center">
+          <v-checkbox
             v-model="createNewOrganizers"
             color="primary"
             hide-details
@@ -208,12 +225,14 @@ const {
   parseRecipe,
   translateRecipe,
   createNewOrganizers,
+  singleStep,
   navigateToRecipe,
 } = useNewRecipeOptions({
   enableImportKeywords: false,
   enableImportCategories: false,
   enableTranslateRecipe: true,
   enableCreateNewOrganizers: true,
+  enableSingleStep: true,
 });
 
 const contentAsString = computed(() => {
@@ -271,6 +290,7 @@ async function createRecipe() {
       images: uploadedImages.value,
       translateLanguage: translateRecipe.value ? i18n.locale.value : null,
       createNewOrganizers: createNewOrganizers.value,
+      singleStep: singleStep.value,
     },
     (message: string) => createStatus.value = message,
   );

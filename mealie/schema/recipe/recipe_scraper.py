@@ -49,6 +49,9 @@ class ScrapeRecipeAI(MealieModel):
     create_new_organizers: bool = False
     """Whether to create tags, categories, and tools that don't already exist in the group"""
 
+    single_step: bool = False
+    """Whether to perform fast 1-step extraction instead of multi-step pipeline"""
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
@@ -56,6 +59,7 @@ class ScrapeRecipeAI(MealieModel):
                 "url": "https://myfavoriterecipes.com/recipes",
                 "translateLanguage": "English",
                 "createNewOrganizers": False,
+                "singleStep": False,
             },
         }
     )

@@ -303,3 +303,40 @@ def test_an_unsluggable_translation_falls_back_to_an_ascii_slug():
     name, slug = resolve_name_and_slug(NameContext(StubTranslator("🍲")), "")
 
     assert (name, slug) == ("🍲", DEFAULT_RECIPE_SLUG)
+
+
+@pytest.mark.asyncio
+async def test_single_step_compile_page_extracts_directly():
+    """When single_step is True, page HTML is converted directly without LLM compilers."""
+    from mealie.services.recipe.import_workflow.context import WorkflowOptions
+
+    step = CompileSourceStep()
+    ctx = StubContext(
+        page_content=(
+            "<html><head><meta property='og:image' content='https://example.com/cover.jpg'></head>"
+            "<body>Recipe content</body></html>"
+        )
+    )
+    ctx.options = WorkflowOptions(single_step=True)
+
+    compiled = await step._compile_page(ctx)
+
+    assert compiled is not None
+    assert compiled.contains_recipe is True
+    assert "Recipe content" in compiled.content
+    assert compiled.image_url == "https://example.com/cover.jpg"
+
+
+def test_single_step_skips_resolve_organizers():
+    """When single_step is True, organizer resolution is skipped to keep import to 1 AI call."""
+    from mealie.services.recipe.import_workflow.context import WorkflowOptions
+    from mealie.services.recipe.import_workflow.steps.resolve_organizers import ResolveOrganizersStep
+
+    step = ResolveOrganizersStep()
+    ctx = StubContext()
+    ctx.options = WorkflowOptions(resolve_organizers=True, single_step=True)
+
+    assert step.should_run(ctx) is False
+
+    ctx.options.single_step = False
+    assert step.should_run(ctx) is True

@@ -77,9 +77,28 @@ class CompileSourceStep(WorkflowStep):
 
         return None
 
+    @staticmethod
+    def _is_single_step(ctx: WorkflowContext) -> bool:
+        return bool(getattr(getattr(ctx, "options", None), "single_step", False))
+
     async def _compile_images(self, ctx: WorkflowContext) -> OpenAICompiledSource | None:
         if not ctx.input.images:
             return None
+
+        if self._is_single_step(ctx):
+            import os
+
+            from mealie.services.openai import OpenAILocalImage
+
+            if hasattr(ctx, "attachments"):
+                ctx.attachments.extend(
+                    [OpenAILocalImage(filename=os.path.basename(img), path=img) for img in ctx.input.images]
+                )
+            noun = "images" if len(ctx.input.images) > 1 else "image"
+            return OpenAICompiledSource(
+                contains_recipe=True,
+                content=f"Attached are {len(ctx.input.images)} {noun} of the recipe.",
+            )
 
         return await self._compile(ctx, SourceType.IMAGES)
 
@@ -87,12 +106,25 @@ class CompileSourceStep(WorkflowStep):
         if not content:
             return None
 
+        if self._is_single_step(ctx):
+            from mealie.services.openai.content import extract_page_content
+
+            try:
+                extracted, image_url = extract_page_content(content)
+                return OpenAICompiledSource(
+                    contains_recipe=True,
+                    content=extracted,
+                    image_url=image_url,
+                )
+            except Exception:
+                return OpenAICompiledSource(contains_recipe=True, content=content)
+
         return await self._compile(ctx, SourceType.CONTENT, content)
 
     async def _compile_page(self, ctx: WorkflowContext) -> OpenAICompiledSource | None:
         # compilers that read the URL themselves go first, so that a video is downloaded rather
         # than fetched and read as a webpage
-        if ctx.input.url and (compiled := await self._compile(ctx, SourceType.URL)):
+        if not self._is_single_step(ctx) and ctx.input.url and (compiled := await self._compile(ctx, SourceType.URL)):
             return compiled
 
         page_content = ctx.input.page_content
@@ -105,7 +137,7 @@ class CompileSourceStep(WorkflowStep):
 
         # share/short links aren't recognized as videos until after redirects; give URL
         # compilers a second chance with the landing URL before reading the page as HTML
-        if ctx.resolved_url and ctx.resolved_url != ctx.input.url:
+        if not self._is_single_step(ctx) and ctx.resolved_url and ctx.resolved_url != ctx.input.url:
             if compiled := await self._compile(ctx, SourceType.URL):
                 return compiled
 

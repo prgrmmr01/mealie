@@ -411,6 +411,7 @@ class RecipeController(BaseRecipeController):
         url: Annotated[str | None, Form()] = None,
         translate_language: Annotated[str | None, Form(alias="translateLanguage")] = None,
         create_new_organizers: Annotated[bool, Form(alias="createNewOrganizers")] = False,
+        single_step: Annotated[bool, Form(alias="singleStep")] = False,
         images: list[UploadFile] = File(default_factory=list),
     ) -> str:
         """
@@ -423,6 +424,7 @@ class RecipeController(BaseRecipeController):
             url=url,
             translate_language=translate_language,
             create_new_organizers=create_new_organizers,
+            single_step=single_step,
         )
         async for event in self._create_recipe_with_ai(req, images):
             if isinstance(event.data, SSEDataEventDone):
@@ -440,6 +442,7 @@ class RecipeController(BaseRecipeController):
         url: Annotated[str | None, Form()] = None,
         translate_language: Annotated[str | None, Form(alias="translateLanguage")] = None,
         create_new_organizers: Annotated[bool, Form(alias="createNewOrganizers")] = False,
+        single_step: Annotated[bool, Form(alias="singleStep")] = False,
         images: list[UploadFile] = File(default_factory=list),
     ) -> AsyncIterable[ServerSentEvent]:
         """
@@ -452,6 +455,7 @@ class RecipeController(BaseRecipeController):
             url=url,
             translate_language=translate_language,
             create_new_organizers=create_new_organizers,
+            single_step=single_step,
         )
         async for event in self._create_recipe_with_ai(req, images):
             yield event
@@ -468,6 +472,7 @@ class RecipeController(BaseRecipeController):
                 url=req.url,
                 translate_language=req.translate_language,
                 create_new_organizers=req.create_new_organizers,
+                single_step=req.single_step,
                 on_progress=on_progress,
             )
             self._publish_recipe_created(recipe)

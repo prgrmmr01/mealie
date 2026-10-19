@@ -27,6 +27,7 @@ class BuildRecipeStep(WorkflowStep):
             ctx.ai.get_prompt(BUILD_RECIPE_PROMPT),
             self._build_message(ctx),
             response_schema=OpenAIRecipe,
+            attachments=ctx.attachments or None,
         )
 
         if not response:

@@ -252,6 +252,7 @@ export class RecipeAPI extends BaseCRUDAPI<CreateRecipe, Recipe, RecipeIn> {
       images?: (Blob | File)[];
       translateLanguage?: string | null;
       createNewOrganizers?: boolean;
+      singleStep?: boolean;
     },
     onProgress?: (message: string) => void,
   ): Promise<RequestResponse<string>> {
@@ -268,6 +269,9 @@ export class RecipeAPI extends BaseCRUDAPI<CreateRecipe, Recipe, RecipeIn> {
     }
     if (payload.createNewOrganizers) {
       formData.append("createNewOrganizers", "true");
+    }
+    if (payload.singleStep !== undefined) {
+      formData.append("singleStep", payload.singleStep ? "true" : "false");
     }
 
     (payload.images || []).forEach((image, index) => {

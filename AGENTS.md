@@ -236,3 +236,70 @@ task docker:prod        # Build and run production Docker compose
 - [Documentation](https://docs.mealie.io/)
 - [Contributors Guide](https://nightly.mealie.io/contributors/developers-guide/code-contributions/)
 - [Discord](https://discord.gg/QuStdQGSGK)
+
+## Deployment & Local Server Operations (Docker & Tailscale)
+
+### Running Mealie via Docker Compose
+A root-level `docker-compose.yml` (and `~/docker/mealie/docker-compose.yml`) is set up to run Mealie locally:
+
+```yaml
+services:
+  mealie:
+    image: ghcr.io/mealie-recipes/mealie:v3.28.0
+    container_name: mealie
+    restart: unless-stopped
+    ports:
+      - "9925:9000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+      - BASE_URL=http://localhost:9925
+      - DB_ENGINE=sqlite
+```
+
+**Commands:**
+```bash
+docker compose up -d       # Start container in background
+docker compose logs -f     # View logs
+docker compose down        # Stop container
+```
+
+- **Local Access:** `http://localhost:9925` (or local LAN IP, e.g. `http://192.168.2.37:9925`)
+- **Remote Access (Tailscale):** Set `BASE_URL=http://<YOUR_TAILSCALE_IP>:9925` in `docker-compose.yml` and access via phone or remote device on your Tailscale tailnet.
+- **Default Initial Credentials:** `changeme@example.com` / `MyPassword` (or `admin@mealie.local` / `ChangeMe`). Change immediately after first login.
+
+### Known Upstream Image Gotchas
+- **`latest` tag vs `v3.28.0`:** The upstream `latest` release (`v3.29.0`) was published with an empty 0-byte `/app/run.sh` entrypoint and broken dependency resolution, causing `exec /app/run.sh: exec format error` (`ENOEXEC`). Always use a verified stable release tag such as `ghcr.io/mealie-recipes/mealie:v3.28.0` until upstream resolves the release build.
+
+## Fork & Remote Repository Management
+
+This repository is set up with a personal fork for custom modifications:
+- **Fork Remote (`origin`):** `https://github.com/prgrmmr01/mealie.git`
+- **Upstream Remote (`upstream`):** `https://github.com/mealie-recipes/mealie.git`
+- **Default Development Branch:** `mealie-next`
+
+### Development & Push Workflow
+1. Make your changes and test locally.
+2. Commit and push to your personal fork:
+   ```bash
+   git add .
+   git commit -m "feat: description of changes"
+   git push origin mealie-next
+   ```
+3. To sync changes from upstream:
+   ```bash
+   git fetch upstream
+   git merge upstream/mealie-next
+   git push origin mealie-next
+   ```
+
+## Windows & Local Environment Notes
+- **Python Version:** Mealie targets Python 3.14 (`>=3.14,<3.15`).
+- **Installed Tooling Locations:**
+  - `uv`: `%USERPROFILE%\.local\bin\uv.exe`
+  - `pnpm`: `%USERPROFILE%\.npm-global\pnpm.cmd`
+  - `task` (Go-Task): `%USERPROFILE%\.npm-global\task.cmd`
+- **Native C-Extensions (`python-ldap`):** Direct local development on Windows outside Docker requires Microsoft Visual C++ Build Tools and OpenLDAP development libraries (`lber.h`). Running via Docker or VS Code Dev Containers is strongly recommended to avoid native compilation issues.

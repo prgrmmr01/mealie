@@ -25,7 +25,7 @@ class TranscriptionCompiler(SourceCompiler):
             return False
 
         settings = self.ctx.ai.provider_settings
-        if not (settings and settings.audio_provider_enabled):
+        if not (settings and (settings.audio_provider_enabled or settings.ai_enabled)):
             return False
 
         return transcription.is_video_url(url)

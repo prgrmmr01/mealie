@@ -124,7 +124,7 @@ class CompileSourceStep(WorkflowStep):
     async def _compile_page(self, ctx: WorkflowContext) -> OpenAICompiledSource | None:
         # compilers that read the URL themselves go first, so that a video is downloaded rather
         # than fetched and read as a webpage
-        if not self._is_single_step(ctx) and ctx.input.url and (compiled := await self._compile(ctx, SourceType.URL)):
+        if ctx.input.url and (compiled := await self._compile(ctx, SourceType.URL)):
             return compiled
 
         page_content = ctx.input.page_content
@@ -137,7 +137,7 @@ class CompileSourceStep(WorkflowStep):
 
         # share/short links aren't recognized as videos until after redirects; give URL
         # compilers a second chance with the landing URL before reading the page as HTML
-        if not self._is_single_step(ctx) and ctx.resolved_url and ctx.resolved_url != ctx.input.url:
+        if ctx.resolved_url and ctx.resolved_url != ctx.input.url:
             if compiled := await self._compile(ctx, SourceType.URL):
                 return compiled
 

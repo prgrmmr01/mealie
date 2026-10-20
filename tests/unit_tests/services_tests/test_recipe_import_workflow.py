@@ -340,3 +340,38 @@ def test_single_step_skips_resolve_organizers():
 
     ctx.options.single_step = False
     assert step.should_run(ctx) is True
+
+
+@pytest.mark.asyncio
+async def test_single_step_still_compiles_video_url():
+    """Even in single_step mode, video URL compilers are executed to get the transcription."""
+    from mealie.services.recipe.import_workflow.context import WorkflowOptions
+
+    step = CompileSourceStep(compilers=[UnreachableUrlCompiler])
+    ctx = StubContext(url="https://www.youtube.com/watch?v=12345")
+    ctx.options = WorkflowOptions(single_step=True)
+
+    compiled = await step._compile_page(ctx)
+
+    assert compiled is not None
+    assert compiled.content == "from the second url compiler"
+
+
+def test_ai_provider_audio_enabled_with_default_provider():
+    """Default provider can satisfy audio and image requirements when dedicated ones are unset."""
+    from uuid import uuid4
+
+    from mealie.schema.group.ai_providers import AIProviderSettingsOut, AIProviderSummary
+
+    provider_id = uuid4()
+    provider = AIProviderSummary(id=provider_id, name="Test", group_id=uuid4(), model="test-model")
+    settings = AIProviderSettingsOut(
+        providers=[provider],
+        default_provider_id=provider_id,
+        audio_provider_id=None,
+        image_provider_id=None,
+    )
+
+    assert settings.ai_enabled is True
+    assert settings.audio_provider_enabled is True
+    assert settings.image_provider_enabled is True

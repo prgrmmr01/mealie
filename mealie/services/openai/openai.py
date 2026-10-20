@@ -154,12 +154,12 @@ class OpenAIService(BaseService):
         self.audio_provider = (
             self.repos.group_ai_providers.get_one(self.provider_settings.audio_provider_id)
             if self.provider_settings and self.provider_settings.audio_provider_id
-            else None
+            else self.default_provider
         )
         self.image_provider = (
             self.repos.group_ai_providers.get_one(self.provider_settings.image_provider_id)
             if self.provider_settings and self.provider_settings.image_provider_id
-            else None
+            else self.default_provider
         )
 
         super().__init__()
@@ -566,6 +566,7 @@ class OpenAIService(BaseService):
             )
 
         # Fallback to chat completion
+        provider = self.audio_provider or self.default_provider
         path_obj = Path(audio_file_path)
         with open(path_obj, "rb") as audio_file:
             audio_data = base64.b64encode(audio_file.read()).decode("utf-8")
@@ -577,6 +578,7 @@ class OpenAIService(BaseService):
             "Attached is the audio data.",
             response_schema=OpenAIText,
             attachments=[audio_attachment],
+            provider=provider,
         )
 
         return response.text if response else None
